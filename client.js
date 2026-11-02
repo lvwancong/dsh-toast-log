@@ -30,6 +30,8 @@ window.__ModuleLoader__.load({
     const CAP_KEY = 'dsh.toast-log.capacity';
     const WIDTH_KEY = 'dsh.toast-log.width-v1';
     const LANG_KEY = 'dsh.toast-log.lang';
+    const HIDDEN_KEY = 'dsh.toast-log.hidden-before';
+    const HIDDEN_TS_KEY = 'dsh.toast-log.hidden-ts';
     const STYLE_ID = 'dsh-toast-log-style';
     const MAX_CAP = 1000;
     const DEFAULT_CAP = 200;
@@ -48,6 +50,8 @@ window.__ModuleLoader__.load({
         settingsHint: '把界面里一闪而过的系统 toast 记入侧栏铃铛历史（localStorage 持久化）',
         capacity: '历史保留条数',
         today: '今天',
+        cleared: '已清空 {n} 条历史（系统源日志未删除）',
+        undo: '撤销',
         tabAll: '全部',
         tabWeb: '网页',
         tabSys: '系统',
@@ -67,6 +71,8 @@ window.__ModuleLoader__.load({
         settingsHint: 'Record transient system toasts into a sidebar history (persisted in localStorage)',
         capacity: 'History capacity',
         today: 'Today',
+        cleared: 'Cleared {n} entries (source log untouched)',
+        undo: 'Undo',
         tabAll: 'All',
         tabWeb: 'Web',
         tabSys: 'System',
@@ -228,6 +234,7 @@ window.__ModuleLoader__.load({
 .dtl-tab.on{background:color-mix(in srgb,currentColor 14%,transparent);opacity:1;font-weight:600}
 .dtl-tag{flex:none;font-size:10px;line-height:14px;padding:0 5px;margin-top:2px;border-radius:4px;background:color-mix(in srgb,currentColor 10%,transparent);color:color-mix(in srgb,currentColor 75%,transparent)}
 .dtl-syserr{padding:6px 14px;font-size:11px;color:var(--dsw-alias-state-warn-primary,#d98a2b)}
+.dtl-flash{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 14px;font-size:11px;color:var(--dsw-alias-state-success-primary,#46a758);border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent)}
 .dtl-btn{border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:none;color:inherit;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
 .dtl-btn:hover{background:color-mix(in srgb,currentColor 8%,transparent)}
 .dtl-list{overflow-y:auto;padding:4px 0 8px}
@@ -266,6 +273,9 @@ window.__ModuleLoader__.load({
       const switchLang = () => { const next = curLang === 'zh' ? 'en' : 'zh'; setLang(next); setLangState(next); };
       const [expanded, setExpanded] = React.useState(() => new Set()); // 点开看全文的行
       const [readTs, setReadTs] = React.useState(lastRead);
+      const [hiddenBefore, setHiddenBefore] = React.useState(() => Number(localStorage.getItem(HIDDEN_KEY)) || 0);
+      const [hiddenTs, setHiddenTs] = React.useState(() => { try { const v = JSON.parse(localStorage.getItem(HIDDEN_TS_KEY) || '[]'); return new Set(Array.isArray(v) ? v : []); } catch { return new Set(); } });
+      const [flash, setFlash] = React.useState('');
       const [width, setWidth] = React.useState(savedWidth);
       const [pos, setPos] = React.useState(null);
       const bellRef = React.useRef(null);
@@ -358,16 +368,42 @@ window.__ModuleLoader__.load({
       };
       React.useEffect(() => { localStorage.setItem(WIDTH_KEY, String(width)); }, [width]);
 
-      const merged = mergeEntries(entries, sys, MAX_CAP);
-      const shown = tab === 'all' ? merged : tab === 'web' ? entries : sys;
+      const persistHidden = (set) => { try { localStorage.setItem(HIDDEN_TS_KEY, JSON.stringify([...set])); } catch { /* quota */ } };
+      const isVisible = (e) => e.t > hiddenBefore && !hiddenTs.has(e.t);
+      const merged = mergeEntries(entries, sys, MAX_CAP).filter(isVisible);
+      const shown = tab === 'all' ? merged : tab === 'web' ? entries.filter(isVisible) : sys.filter(isVisible);
       const unread = unreadCount(merged, readTs);
       const fmt = (ts) => {
         const d = new Date(ts);
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       };
       const markRead = () => { localStorage.setItem(READ_KEY, String(Date.now())); setReadTs(lastRead()); notify(); };
-      const clearAll = () => { save([]); notify(); }; // 只清网页侧历史；系统日志是文件流水，面板不删
-      const dismiss = (ts) => { save(load().filter((e) => e.t !== ts)); notify(); };
+      // 清空 = 隐藏当前可见的全部历史（含系统流水的展示）+ 删除网页侧数据。
+      // 系统源日志（notify.log 属 dsh-notify-windows）绝不删除，只不再展示。
+      const clearAll = () => {
+        const n = shown.length;
+        const cutoff = Date.now();
+        localStorage.setItem(HIDDEN_KEY, String(cutoff));
+        setHiddenBefore(cutoff);
+        setHiddenTs(new Set()); persistHidden(new Set());
+        save([]);
+        setFlash(t('cleared', { n }));
+        notify();
+      };
+      const undoClear = () => {
+        localStorage.removeItem(HIDDEN_KEY);
+        setHiddenBefore(0);
+        setFlash('');
+        notify();
+      };
+      const dismiss = (e) => {
+        if (e.src === 'sys') {
+          const n = new Set(hiddenTs); n.add(e.t); setHiddenTs(n); persistHidden(n);
+        } else {
+          save(load().filter((x) => x.t !== e.t));
+        }
+        notify();
+      };
       const rows = shown.slice().reverse();
 
       const panel = open ? h('div', {
@@ -393,9 +429,13 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'dtl-actions' },
             unread > 0 ? h('button', { className: 'dtl-btn', type: 'button', onClick: markRead }, t('markRead')) : null,
-            tab !== 'sys' && rows.length > 0 ? h('button', { className: 'dtl-btn', type: 'button', onClick: clearAll }, t('clearAll')) : null,
+            rows.length > 0 ? h('button', { className: 'dtl-btn', type: 'button', onClick: clearAll }, t('clearAll')) : null,
           ),
         ),
+        flash ? h('div', { className: 'dtl-flash' },
+          flash,
+          h('button', { className: 'dtl-btn', type: 'button', onClick: undoClear }, t('undo')),
+        ) : null,
         sysErr ? h('div', { className: 'dtl-syserr' }, t('sysFailed')) : null,
         h('div', { className: 'dtl-list', style: { maxHeight: 'min(480px, calc(100vh - 140px))' } },
           rows.length === 0
@@ -416,7 +456,7 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'dtl-time' }, fmt(e.t)),
                     e.src === 'sys' ? h('span', { className: 'dtl-tag' }, t('srcSys')) : null,
                     h('span', { className: 'dtl-text' }, e.text),
-                    e.src === 'sys' ? null : h('button', { className: 'dtl-x', type: 'button', title: t('dismiss'), onClick: (ev) => { ev.stopPropagation(); dismiss(e.t); } }, '×'),
+                    h('button', { className: 'dtl-x', type: 'button', title: t('dismiss'), onClick: (ev) => { ev.stopPropagation(); dismiss(e); } }, '×'),
                   ),
                 );
               }),
