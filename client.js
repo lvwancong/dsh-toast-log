@@ -29,6 +29,7 @@ window.__ModuleLoader__.load({
     const ENABLE_KEY = 'dsh.toast-log.enabled';
     const CAP_KEY = 'dsh.toast-log.capacity';
     const WIDTH_KEY = 'dsh.toast-log.width-v1';
+    const LANG_KEY = 'dsh.toast-log.lang';
     const STYLE_ID = 'dsh-toast-log-style';
     const MAX_CAP = 1000;
     const DEFAULT_CAP = 200;
@@ -51,6 +52,8 @@ window.__ModuleLoader__.load({
         tabWeb: '网页',
         tabSys: '系统',
         sysFailed: '系统通知读取失败',
+        langLabel: '中文',
+        langTip: 'Switch to English',
       },
       en: {
         title: 'Toast history',
@@ -68,14 +71,23 @@ window.__ModuleLoader__.load({
         tabWeb: 'Web',
         tabSys: 'System',
         sysFailed: 'failed to load system notifications',
+        langLabel: 'English',
+        langTip: '切换到中文',
       },
     };
-    const lang = (navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    // 语言：用户覆盖（面板一键切换）> 浏览器语言。切换持久化，无需改浏览器设置。
+    const guessLang = () => ((navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+    let curLang = (() => { try { const v = localStorage.getItem(LANG_KEY); return v === 'zh' || v === 'en' ? v : guessLang(); } catch { return guessLang(); } })();
     const t = (k, vars) => {
-      let s = (STRINGS[lang] && STRINGS[lang][k]) || STRINGS.en[k] || k;
+      let s = (STRINGS[curLang] && STRINGS[curLang][k]) || STRINGS.en[k] || k;
       if (vars) for (const [a, b] of Object.entries(vars)) s = s.replace(`{${a}}`, b);
       return s;
     };
+    function setLang(l) {
+      curLang = l;
+      try { localStorage.setItem(LANG_KEY, l); } catch { /* private mode */ }
+      notify();
+    }
 
     // ── 纯逻辑（可单测，元素用 duck-typing）──
     function isToastNode(el) {
@@ -250,6 +262,8 @@ window.__ModuleLoader__.load({
       const [sys, setSys] = React.useState([]);
       const [sysErr, setSysErr] = React.useState(false);
       const [tab, setTab] = React.useState('all'); // all | web | sys
+      const [lang, setLangState] = React.useState(curLang);
+      const switchLang = () => { const next = curLang === 'zh' ? 'en' : 'zh'; setLang(next); setLangState(next); };
       const [expanded, setExpanded] = React.useState(() => new Set()); // 点开看全文的行
       const [readTs, setReadTs] = React.useState(lastRead);
       const [width, setWidth] = React.useState(savedWidth);
@@ -365,6 +379,10 @@ window.__ModuleLoader__.load({
         createPortal ? h('div', { className: 'dtl-resize', title: t('resize'), onMouseDown: startResize }) : null,
         h('div', { className: 'dtl-head' },
           h('b', null, t('title')),
+          h('button', {
+            type: 'button', className: 'dtl-btn dtl-lang', title: t('langTip'),
+            onClick: (ev) => { ev.stopPropagation(); switchLang(); },
+          }, t('langLabel') === '中文' ? '中文 / EN' : 'EN / 中文'),
           h('div', { className: 'dtl-tabs' },
             ...[['all', t('tabAll')], ['web', t('tabWeb')], ['sys', t('tabSys')]].map(([k, label]) =>
               h('button', {
@@ -425,6 +443,12 @@ window.__ModuleLoader__.load({
     // ── 设置行 ──
     function SettingsRow() {
       const [on, setOn] = React.useState(enabled());
+      const [, force] = React.useState(0); // 语言切换经 notify() 广播，这里订阅重渲染
+      React.useEffect(() => {
+        const bump = () => force((x) => x + 1);
+        window.addEventListener('dsh-toast-log-updated', bump);
+        return () => window.removeEventListener('dsh-toast-log-updated', bump);
+      }, []);
       return h('label', { className: 'dtl-settings' },
         h('input', {
           type: 'checkbox', checked: on,

@@ -1,6 +1,6 @@
 {
   "name": "dsh-toast-log",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Toast 留痕铃铛：网页 toast（DOM 观察器）+ 系统通知（notify.log 只读接口）合并进一个可回看面板，IDEA Event Log 式。侧栏铃铛 + 未读角标 + SSE 亚秒推送 + 页签过滤 + 拖拽调宽 + localStorage 持久化。",
   "type": "module",
   "license": "MIT",
