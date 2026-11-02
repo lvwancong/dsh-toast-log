@@ -30,6 +30,11 @@ DSH 界面里一闪而过的提示统一进一个可回看面板（IDEA Event Lo
 ## 安装
 
 ```bash
+# 方式〇：下载 Release 附件（最稳，不依赖 git 拉取）
+# https://github.com/lvwancong/dsh-toast-log/releases 下载 dsh-toast-log-<ver>.tgz
+cd <profile目录>/
+pnpm add ./dsh-toast-log-<ver>.tgz
+
 # 方式一：从 GitHub 直装
 cd <profile目录>/          # 例：~/.dsh/profiles/desktop
 pnpm add github:lvwancong/dsh-toast-log

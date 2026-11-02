@@ -41,6 +41,11 @@ view of the log file and never deletes it.
 ## Install
 
 ```bash
+# Option 0: Release tarball (most reliable, no git fetch)
+# download dsh-toast-log-<ver>.tgz from https://github.com/lvwancong/dsh-toast-log/releases
+cd <profile dir>/
+pnpm add ./dsh-toast-log-<ver>.tgz
+
 # Option 1: straight from GitHub
 cd <profile dir>/          # e.g. ~/.dsh/profiles/desktop
 pnpm add github:lvwancong/dsh-toast-log
