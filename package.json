@@ -18,7 +18,7 @@
     ".": "./index.js",
     "./client": "./client.js"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "LICENSE"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "README.en.md", "LICENSE"],
   "scripts": {
     "test": "node test.mjs"
   },
