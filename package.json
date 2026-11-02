@@ -1,0 +1,36 @@
+{
+  "name": "dsh-toast-log",
+  "version": "0.1.5",
+  "description": "Toast 留痕铃铛：网页 toast（DOM 观察器）+ 系统通知（notify.log 只读接口）合并进一个可回看面板，IDEA Event Log 式。侧栏铃铛 + 未读角标 + SSE 亚秒推送 + 页签过滤 + 拖拽调宽 + localStorage 持久化。",
+  "type": "module",
+  "license": "MIT",
+  "author": "lvwancong",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lvwancong/dsh-toast-log.git"
+  },
+  "homepage": "https://github.com/lvwancong/dsh-toast-log#readme",
+  "bugs": {
+    "url": "https://github.com/lvwancong/dsh-toast-log/issues"
+  },
+  "keywords": ["deepseek-harness", "dsh", "dsh-plugin", "toast", "notification", "history", "留痕", "铃铛"],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js"
+  },
+  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-layout"]
+    }
+  }
+}
