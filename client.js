@@ -51,6 +51,7 @@ window.__ModuleLoader__.load({
         capacity: '历史保留条数',
         today: '今天',
         cleared: '已清空 {n} 条历史（系统源日志未删除）',
+        hiddenNote: '已隐藏 {n} 条历史（清空过，可恢复）',
         undo: '撤销',
         tabAll: '全部',
         tabWeb: '网页',
@@ -72,6 +73,7 @@ window.__ModuleLoader__.load({
         capacity: 'History capacity',
         today: 'Today',
         cleared: 'Cleared {n} entries (source log untouched)',
+        hiddenNote: '{n} entries hidden (cleared earlier, restorable)',
         undo: 'Undo',
         tabAll: 'All',
         tabWeb: 'Web',
@@ -235,6 +237,7 @@ window.__ModuleLoader__.load({
 .dtl-tag{flex:none;font-size:10px;line-height:14px;padding:0 5px;margin-top:2px;border-radius:4px;background:color-mix(in srgb,currentColor 10%,transparent);color:color-mix(in srgb,currentColor 75%,transparent)}
 .dtl-syserr{padding:6px 14px;font-size:11px;color:var(--dsw-alias-state-warn-primary,#d98a2b)}
 .dtl-flash{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 14px;font-size:11px;color:var(--dsw-alias-state-success-primary,#46a758);border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+.dtl-flash-warn{color:color-mix(in srgb,currentColor 72%,transparent)}
 .dtl-btn{border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:none;color:inherit;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
 .dtl-btn:hover{background:color-mix(in srgb,currentColor 8%,transparent)}
 .dtl-list{overflow-y:auto;padding:4px 0 8px}
@@ -405,6 +408,11 @@ window.__ModuleLoader__.load({
         notify();
       };
       const rows = shown.slice().reverse();
+      // 被水位线隐藏的条数（sys + web）——用于常驻恢复入口。
+      // 只在 flash 上挂撤销会导致：关面板/刷新后 flash 消失 → 历史永久不可恢复。
+      const hiddenCount = hiddenBefore > 0
+        ? sys.filter((e) => e.t <= hiddenBefore).length + entries.filter((e) => e.t <= hiddenBefore).length
+        : 0;
 
       const panel = open ? h('div', {
         ref: panelRef,
@@ -434,6 +442,9 @@ window.__ModuleLoader__.load({
         ),
         flash ? h('div', { className: 'dtl-flash' },
           flash,
+          h('button', { className: 'dtl-btn', type: 'button', onClick: undoClear }, t('undo')),
+        ) : hiddenCount > 0 ? h('div', { className: 'dtl-flash dtl-flash-warn' },
+          t('hiddenNote', { n: hiddenCount }),
           h('button', { className: 'dtl-btn', type: 'button', onClick: undoClear }, t('undo')),
         ) : null,
         sysErr ? h('div', { className: 'dtl-syserr' }, t('sysFailed')) : null,
